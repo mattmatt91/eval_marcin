@@ -7,7 +7,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 
 def read_dfs():
-    df_info = pd.read_csv("info.csv")
+    df_info = pd.read_csv("info.csv", decimal=',', sep=';')
     df_info.set_index(df_info.columns[0], inplace=True)
     df_info = df_info.T
     df = pd.read_csv("data.csv")
@@ -84,5 +84,7 @@ def process_pca(X, y, target_names):
 
 
 df, df_info = read_dfs()
+print(df_info)
+exit()
 df_melt = create_melt(df, df_info)
-plot_measurements(df_melt)
+# plot_measurements(df_melt)

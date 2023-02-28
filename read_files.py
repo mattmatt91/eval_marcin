@@ -12,7 +12,7 @@ def read_measurement(path):
     if os.path.isfile(path_measurement):
         try:
             info = extract_info(path)
-            print(info)
+            # print(info)
             df = pd.read_csv(path_measurement, delimiter=',',
                              decimal='.', header=2)
             df.columns = ['time', info['sample']]
@@ -41,7 +41,6 @@ def extract_info(path):
     info['number'] = number
     sample = path.split(' ')[1].split('_')[1]
     info['sample'] = sample
-    print(info)
     return info
 
 
@@ -62,7 +61,7 @@ for measurement in measurements:
         dfs.append(df)
         infos[measurement] = info
 df_info = pd.DataFrame(infos)
-df_info.to_csv('info.csv', header=True, index=True)
+df_info.to_csv('info.csv', header=True, index=True, decimal=',', sep=';')
 df = merge_dfs(dfs)
 df = df[~df.isnull().any(axis=1)]
 df.to_csv('data.csv', header=True, index=True)
