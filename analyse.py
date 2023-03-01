@@ -4,14 +4,21 @@ import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
 
 
 def read_dfs():
     df_info = pd.read_csv("info.csv", decimal=',', sep=';')
     df_info.set_index(df_info.columns[0], inplace=True)
     df_info = df_info.T
+    df_info.index.rename('name', inplace=True)
+
     df = pd.read_csv("data.csv")
-    df['time'] = df.index
+
+    # df['time'] = df.index
+
     return df, df_info
 
 
@@ -37,54 +44,69 @@ def plot_measurements(df_melt):
 
 
 def prep_pca(df, df_info):
+
+    time_stamps = df['time']
     df = df.T
     df.columns = df.iloc[0]
     df = df[1:]
-    X = [df[i].to_list() for i in df.columns]
-    y = df.index.to_list()
+    X = np.transpose(np.array([df[i].to_list() for i in df.columns]))
+    names = df.index
+    y = [df_info['sample'][i] for i in df.index]
     target_names = [df_info.loc[i]['sample'] for i in df.index]
-    print(len(set(target_names)))
-    return X, y, target_names
+    dict_targets = {}
+    for name, i in zip(set(target_names), range(len(set(target_names)))):
+        dict_targets[name] = i
+    return X, y, dict_targets, names, time_stamps
 
 
-def process_pca(X, y, target_names):
-    pca = PCA(n_components=2)
-    X_r = pca.fit(X).transform(X)
+def process_pca(X, y, target_names, names, time_stamps):
+    fig = plt.figure(1, figsize=(4, 3))
+    plt.clf()
+    y = [target_names[i] for i in y]
+    ax = fig.add_subplot(111, projection="3d", elev=48, azim=134)
+    ax.set_position([0, 0, 0.95, 1])
+    plt.cla()
 
-    lda = LinearDiscriminantAnalysis(n_components=2)
-    X_r2 = lda.fit(X, y).transform(X)
 
-    # Percentage of variance explained for each components
-    print(
-        "explained variance ratio (first two components): %s"
-        % str(pca.explained_variance_ratio_)
-    )
+    # scaler = StandardScaler()
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(X)
 
-    plt.figure()
-    colors = ["navy", "turquoise", "darkorange",
-              "red", "blue", "green", "yellow"]
-    lw = 2
+    pca = PCA(n_components=3)
+    pca.fit(X)
+    X_pca = pca.transform(X)
+    loadings = pd.DataFrame(pca.components_.T, columns=[
+                            'PC1', 'PC2', 'PC3'], index=time_stamps)
+    loadings = loadings.abs()
+    loadings_sum = loadings.sum(axis=1)
+    loadings['sum'] = loadings_sum
+    loadings.to_csv('loadings.csv', decimal=',', sep=";")
+    fig = px.line(loadings_sum)
+    fig.write_html('loadings.html')
+    plot_pca(X_pca, df_info, names)
 
-    for color, i, target_name in zip(colors, [0, 1, 2], target_names):
-        plt.scatter(
-            X_r[y == i, 0], X_r[y == i, 1], color=color, alpha=0.8, lw=lw, label=target_name
-        )
-    plt.legend(loc="best", shadow=False, scatterpoints=1)
-    plt.title("PCA of IRIS dataset")
 
-    plt.figure()
-    for color, i, target_name in zip(colors, [0, 1, 2], target_names):
-        plt.scatter(
-            X_r2[y == i, 0], X_r2[y == i, 1], alpha=0.8, color=color, label=target_name
-        )
-    plt.legend(loc="best", shadow=False, scatterpoints=1)
-    plt.title("LDA of IRIS dataset")
+def plot_pca(X_pca, df_info, names):
+    df = prepare_plot_pca(X_pca, df_info, names)
+    fig = px.scatter_3d(df, x="df, ", y="y", z='z',
+                        color="sample",  hover_data=df.columns)
+    fig.write_html('plot_pca.html')
+    fig.show()
 
-    plt.show()
+
+def prepare_plot_pca(X_pca, df_info, names):
+    data = []
+    for this_x,  name in zip(X_pca, names):
+        data.append(
+            {'name': name, 'df, ': this_x[0], 'y': this_x[1], 'z': this_x[2]} | df_info.loc[name].to_dict())
+    df = pd.DataFrame(data)
+    return df
 
 
 df, df_info = read_dfs()
-print(df_info)
-exit()
-df_melt = create_melt(df, df_info)
+
+# df_melt = create_melt(df, df_info)
+# print(df_melt)
 # plot_measurements(df_melt)
+X, y, target_names, names, time_stamps = prep_pca(df, df_info)
+process_pca(X, y, target_names, names, time_stamps)
